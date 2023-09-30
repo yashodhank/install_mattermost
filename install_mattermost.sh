@@ -27,9 +27,37 @@ function install_mattermost() {
     apt update && apt upgrade -y
     apt install -y sudo curl wget gnupg postgresql nginx jq lsb-release
 
-    sudo -u postgres psql -c "CREATE DATABASE mattermost"
-    sudo -u postgres psql -c "CREATE USER mmuser WITH PASSWORD '$mm_db_pass'"
-    sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE mattermost to mmuser"
+    # Check if the database exists
+    DB_EXISTS=$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='mattermost'")
+
+    if [ "$DB_EXISTS" == "1" ]; then
+        read -p "Database 'mattermost' already exists. Do you want to drop and recreate it? (yes/no): " recreate_db
+        if [ "$recreate_db" == "yes" ]; then
+            sudo -u postgres psql -c "DROP DATABASE mattermost;"
+            sudo -u postgres psql -c "CREATE DATABASE mattermost;"
+        else
+            echo "Using the existing 'mattermost' database."
+        fi
+    else
+        sudo -u postgres psql -c "CREATE DATABASE mattermost;"
+    fi
+
+    # Check if the user exists
+    USER_EXISTS=$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='mmuser'")
+
+    if [ "$USER_EXISTS" == "1" ]; then
+        read -p "User 'mmuser' already exists. Do you want to recreate it with a new password? (yes/no): " recreate_user
+        if [ "$recreate_user" == "yes" ]; then
+            sudo -u postgres psql -c "DROP USER mmuser;"
+            sudo -u postgres psql -c "CREATE USER mmuser WITH PASSWORD '$mm_db_pass';"
+        else
+            echo "Using the existing 'mmuser' user."
+        fi
+    else
+        sudo -u postgres psql -c "CREATE USER mmuser WITH PASSWORD '$mm_db_pass';"
+    fi
+
+    sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE mattermost TO mmuser;"
 
     if [ "$install_method" == "package" ]; then
         curl -o- https://deb.packages.mattermost.com/repo-setup.sh | sudo bash -s mattermost
