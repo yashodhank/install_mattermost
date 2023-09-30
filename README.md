@@ -12,15 +12,16 @@ This repository contains a Bash script to automate the installation and removal 
 
 ## Prerequisites
 
-- Ubuntu (Recommended: 20.04 or later)
+- Debian/Ubuntu (Recommended: Debain 11+ or Ubuntu 20.04+)
 - Root access
 - Domain name (optional, but required for SSL)
+- DNS Pointing to domain name/subdomain name of your choice
 
 ## Usage
 
 1. Clone this repository:
    ```sh
-   git clone https://github.com/username/repository.git
+   git clone https://github.com/yashodhank/install_mattermost.git
    cd repository
    ```
 
