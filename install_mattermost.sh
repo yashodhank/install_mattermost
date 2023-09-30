@@ -5,7 +5,7 @@ set -e
 function install_mattermost() {
     echo "Installing Mattermost..."
 
-    read -p "Choose installation method (package/direct): " install_method
+    read -p "Choose installation method (package/archive): " install_method
     read -p "Enter your domain name (or leave empty if not applicable): " domain_name
     read -p "Enable SSL? (yes/no): " enable_ssl
 
@@ -84,7 +84,7 @@ function remove_and_clean_mattermost() {
 }
 
 if [ "$#" -lt 1 ]; then
-    echo "Usage: $0 <install|remove> [package|direct]"
+    echo "Usage: $0 <install|remove> [package|archive]"
     exit 1
 fi
 
@@ -98,7 +98,7 @@ ACTION=$1
 case $ACTION in
     install)
         if [ "$#" -lt 2 ]; then
-            echo "Please specify installation method: package or direct"
+            echo "Please specify installation method: package or archive"
             exit 1
         fi
         install_method=$2

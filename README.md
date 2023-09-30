@@ -5,7 +5,7 @@ This repository contains a Bash script to automate the installation and removal 
 ## Features
 
 - Automated installation and configuration of Mattermost, PostgreSQL, Nginx, and other necessary packages.
-- Supports both package and existing installation methods.
+- Supports both package and archive installation methods.
 - Automated SSL setup with Let's Encrypt.
 - Generates and configures a self-signed SSL certificate if the domain is not reachable.
 - Automated removal and cleanup of Mattermost and all associated components, users, and groups.
@@ -30,7 +30,7 @@ This repository contains a Bash script to automate the installation and removal 
    chmod +x install_mattermost.sh
    ```
 
-3. Run the script with the desired action (install or remove) and installation method (package or existing):
+3. Run the script with the desired action (install or remove) and installation method (package or archive):
    ```sh
    sudo ./install_mattermost.sh install package
    ```
