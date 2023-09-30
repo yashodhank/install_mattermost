@@ -5,14 +5,27 @@ set -e
 function install_mattermost() {
     echo "Installing Mattermost..."
 
-    read -p "Choose installation method (package/archive): " install_method
+    # read -p "Choose installation method (package/archive): " install_method
     read -p "Enter your domain name (or leave empty if not applicable): " domain_name
     read -p "Enable SSL? (yes/no): " enable_ssl
 
     mm_db_pass=$(openssl rand -base64 32)
 
+    # Uncomment and generate en_US.UTF-8 locale
+    sed -i '/^# en_US.UTF-8 UTF-8/s/^# //' /etc/locale.gen && locale-gen
+
+    # Define the environment variables
+    echo 'export LC_ALL=en_US.UTF-8' >> /etc/environment
+    echo 'export LANG=en_US.UTF-8' >> /etc/environment
+    echo 'export LANGUAGE=en_US.UTF-8' >> /etc/environment
+
+    # Source /etc/environment to apply the changes to the current session
+    set -a
+    source /etc/environment
+    set +a
+
     apt update && apt upgrade -y
-    apt install -y sudo curl wget gnupg postgresql nginx jq
+    apt install -y sudo curl wget gnupg postgresql nginx jq lsb-release
 
     sudo -u postgres psql -c "CREATE DATABASE mattermost"
     sudo -u postgres psql -c "CREATE USER mmuser WITH PASSWORD '$mm_db_pass'"
@@ -21,6 +34,18 @@ function install_mattermost() {
     if [ "$install_method" == "package" ]; then
         curl -o- https://deb.packages.mattermost.com/repo-setup.sh | sudo bash -s mattermost
         sudo apt install mattermost -y
+        # Update the correct path for the Mattermost installation if needed
+        MATTERMOST_PATH="/opt/mattermost"
+        CONFIG_DEFAULT_PATH="$MATTERMOST_PATH/config/config.defaults.json"
+        
+        # Check if the config.defaults.json file exists in the expected location
+        if [ ! -f "$CONFIG_DEFAULT_PATH" ]; then
+            read -p "$CONFIG_DEFAULT_PATH does not exist! Please enter the correct path for config.defaults.json: " CONFIG_DEFAULT_PATH
+            if [ ! -f "$CONFIG_DEFAULT_PATH" ]; then
+                echo "$CONFIG_DEFAULT_PATH does not exist! Exiting..."
+                exit 1
+            fi
+        fi
         # Check if the mattermost group exists, and create it if it doesn't
         if ! getent group mattermost > /dev/null; then
             sudo addgroup --system mattermost
@@ -31,12 +56,13 @@ function install_mattermost() {
             sudo adduser --system --ingroup mattermost --no-create-home --disabled-login --disabled-password --gecos "" mattermost
         fi
         # Now you can safely run the install command
-        sudo install -C -m 600 -o mattermost -g mattermost /opt/mattermost/config/config.defaults.json /opt/mattermost/config/config.json
+        # sudo install -C -m 600 -o mattermost -g mattermost /opt/mattermost/config/config.defaults.json /opt/mattermost/config/config.json
+        sudo install -C -m 600 -o mattermost -g mattermost "$CONFIG_DEFAULT_PATH" "$MATTERMOST_PATH/config/config.json"
     else
         wget $(curl -s https://api.github.com/repos/mattermost/mattermost-server/releases/latest | grep browser_download_url | cut -d '"' -f 4 | grep -E 'linux-amd64.tar.gz$') -O mattermost.tar.gz
         tar -xzf mattermost.tar.gz -C /opt
         mkdir /opt/mattermost/data
-        cp /opt/mattermost/config/config.default.json /opt/mattermost/config/config.json
+        cp /opt/mattermost/config/config.defaults.json /opt/mattermost/config/config.json
         # Check if the mattermost group exists, and create it if it doesn't
         if ! getent group mattermost > /dev/null; then
             addgroup --gid ${PGID:-1000} mattermost
@@ -87,7 +113,7 @@ function remove_and_clean_mattermost() {
     rm -f /etc/systemd/system/nginx.service
 
     if [ "$install_method" == "package" ]; then
-        apt remove --purge -y mattermost
+        apt remove --purge --yes mattermost
     else
         rm -rf /opt/mattermost
     fi
@@ -96,9 +122,9 @@ function remove_and_clean_mattermost() {
     userdel -r mattermost || true
     groupdel mattermost || true
 
-    apt remove --purge -y postgresql* nginx*
+    apt remove --purge --yes postgresql* nginx*
     apt autoremove -y
-    rm -rf /var/www /etc/nginx /etc/postgresql-common /var/lib/postgresql
+    rm -rf /opt/mattermost /var/www /etc/nginx /etc/postgresql-common /var/lib/postgresql
 
     echo "Mattermost removed and cleaned successfully!"
 }
