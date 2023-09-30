@@ -21,12 +21,31 @@ function install_mattermost() {
     if [ "$install_method" == "package" ]; then
         curl -o- https://deb.packages.mattermost.com/repo-setup.sh | sudo bash -s mattermost
         sudo apt install mattermost -y
+        # Check if the mattermost group exists, and create it if it doesn't
+        if ! getent group mattermost > /dev/null; then
+            sudo addgroup --system mattermost
+        fi
+        
+        # Check if the mattermost user exists, and create it if it doesn't
+        if ! id -u mattermost > /dev/null 2>&1; then
+            sudo adduser --system --ingroup mattermost --no-create-home --disabled-login --disabled-password --gecos "" mattermost
+        fi
+        # Now you can safely run the install command
         sudo install -C -m 600 -o mattermost -g mattermost /opt/mattermost/config/config.defaults.json /opt/mattermost/config/config.json
     else
         wget $(curl -s https://api.github.com/repos/mattermost/mattermost-server/releases/latest | grep browser_download_url | cut -d '"' -f 4 | grep -E 'linux-amd64.tar.gz$') -O mattermost.tar.gz
         tar -xzf mattermost.tar.gz -C /opt
         mkdir /opt/mattermost/data
         cp /opt/mattermost/config/config.default.json /opt/mattermost/config/config.json
+        # Check if the mattermost group exists, and create it if it doesn't
+        if ! getent group mattermost > /dev/null; then
+            addgroup --gid ${PGID:-1000} mattermost
+        fi
+        
+        # Check if the mattermost user exists, and create it if it doesn't
+        if ! id -u mattermost > /dev/null 2>&1; then
+            adduser -q --disabled-password --uid ${PUID:-1000} --gid ${PGID:-1000} --gecos "" --home /opt/mattermost mattermost
+        fi
     fi
 
     protocol="http://"
@@ -35,8 +54,9 @@ function install_mattermost() {
     fi
 
     jq '.ServiceSettings.SiteURL = "'${protocol}${domain_name}'" | .SqlSettings.DriverName = "postgres" | .SqlSettings.DataSource = "postgres://mmuser:'${mm_db_pass}'@localhost:5432/mattermost?sslmode=disable&connect_timeout=10"' /opt/mattermost/config/config.json > /tmp/config.json && mv /tmp/config.json /opt/mattermost/config/config.json
-
-    chown -R mattermost:mattermost /opt/mattermost
+    
+    # Set the owner and permissions for the Mattermost directory and configuration file
+    chown -Rf mattermost:mattermost /opt/mattermost
     chmod -R 600 /opt/mattermost/config/config.json
 
     systemctl start mattermost
