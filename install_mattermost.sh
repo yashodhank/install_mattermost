@@ -5,9 +5,25 @@ set -e
 function install_mattermost() {
     echo "Installing Mattermost..."
 
+    # Uncomment and generate en_US.UTF-8 locale
+    sed -i '/^# en_US.UTF-8 UTF-8/s/^# //' /etc/locale.gen && locale-gen
+
+    # Define the environment variables
+    echo 'export LC_ALL=en_US.UTF-8' >> /etc/environment
+    echo 'export LANG=en_US.UTF-8' >> /etc/environment
+    echo 'export LANGUAGE=en_US.UTF-8' >> /etc/environment
+
+    # Source /etc/environment to apply the changes to the current session
+    set -a
+    source /etc/environment
+    set +a
+
     # read -p "Choose installation method (package/archive): " install_method
     read -p "Enter your domain name (or leave empty if not applicable): " domain_name
     read -p "Enable SSL? (yes/no): " enable_ssl
+
+    apt update && apt upgrade -y
+    apt install -y sudo curl wget gnupg postgresql nginx jq lsb-release
 
     if [ "$(lsb_release -is)" == "Ubuntu" ]; then
         version=$(lsb_release -rs)
@@ -26,24 +42,8 @@ function install_mattermost() {
         echo "Exiting installation..."
         exit 1
     fi
-    
+
     mm_db_pass=$(openssl rand -base64 32)
-
-    # Uncomment and generate en_US.UTF-8 locale
-    sed -i '/^# en_US.UTF-8 UTF-8/s/^# //' /etc/locale.gen && locale-gen
-
-    # Define the environment variables
-    echo 'export LC_ALL=en_US.UTF-8' >> /etc/environment
-    echo 'export LANG=en_US.UTF-8' >> /etc/environment
-    echo 'export LANGUAGE=en_US.UTF-8' >> /etc/environment
-
-    # Source /etc/environment to apply the changes to the current session
-    set -a
-    source /etc/environment
-    set +a
-
-    apt update && apt upgrade -y
-    apt install -y sudo curl wget gnupg postgresql nginx jq lsb-release
 
     # Check if the database exists
     DB_EXISTS=$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='mattermost'")
