@@ -9,6 +9,24 @@ function install_mattermost() {
     read -p "Enter your domain name (or leave empty if not applicable): " domain_name
     read -p "Enable SSL? (yes/no): " enable_ssl
 
+    if [ "$(lsb_release -is)" == "Ubuntu" ]; then
+        version=$(lsb_release -rs)
+        if [[ "$version" == "18.04" || "$version" == "20.04" || "$version" == "22.04" ]]; then
+            install_method="package"
+        else
+            echo "Unsupported Ubuntu release: '$version'."
+            echo "Falling back to archive installation method."
+            install_method="archive"
+        fi
+    elif [ "$(lsb_release -is)" == "Debian" ]; then
+        echo "Debian detected. Falling back to archive installation method."
+        install_method="archive"
+    else
+        echo "Unsupported distribution. Only Ubuntu and Debian are supported."
+        echo "Exiting installation..."
+        exit 1
+    fi
+    
     mm_db_pass=$(openssl rand -base64 32)
 
     # Uncomment and generate en_US.UTF-8 locale
